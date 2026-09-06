@@ -73,16 +73,19 @@ Note this value is inferred.")
       (transient--do-return)
     (transient--do-stay)))
 
+;; (ns-do-applescript "tell application \"Shortcuts Events\" to run shortcut named \"Triode Stop\"")
+(defvar triode--applescript-template "tell application \"Shortcuts Events\" to run shortcut named \"Triode %s\""
+  "AppleScript template for Triode.")
 
-(defun triode--make-request (clause &optional clip)
+(defun triode--make-request (clause &optional aps)
   "Make request to Triode with CLAUSE.
-
-If CLIP is non-nil, then store result in `kill-ring'."
-  (let* ((request (format triode--shortcut-template clause))
-         (response (shell-command-to-string request)))
-    (if clip
-        (kill-new response))
-    response))
+If APS is non-nil, then run Shortcut via AppleScript."
+  (let ((request (if aps
+                      (format triode--applescript-template clause)
+                    (format triode--shortcut-template clause))))
+    (if aps
+        (ns-do-applescript request)
+      (shell-command-to-string request))))
 
 (defun triode-current-state ()
   "Get current state of Triode."
@@ -123,25 +126,25 @@ If CLIP is non-nil, then store result in `kill-ring'."
   "Play Triode."
   (interactive)
   (setq triode-is-playing t)
-  (triode--make-request "Start"))
+  (triode--make-request "Start" t))
 
 (defun triode-stop ()
   "Stop Triode."
   (interactive)
   (setq triode-is-playing nil)
-  (triode--make-request "Stop"))
+  (triode--make-request "Stop" t))
 
 (defun triode-mute ()
   "Mute Triode."
   (interactive)
   (setq triode-is-muting t)
-  (triode--make-request "Mute On"))
+  (triode--make-request "Mute On" t))
 
 (defun triode-unmute ()
   "Unmute Triode."
   (interactive)
   (setq triode-is-muting nil)
-  (triode--make-request "Mute Off"))
+  (triode--make-request "Mute Off" t))
 
 (defun triode-station-gui ()
   "Choose station using Triode GUI."
