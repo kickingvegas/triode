@@ -4,20 +4,57 @@
 
 THIS PROJECT IS WIP.
 
-*triode.el* is TBD.
+[[file:docs/images/triode-tmenu.png]]
+
+
+*triode.el* is a remote control interface to the Triode app (https://triode.app) for macOS.
 
 * Requirements
 
-*triode.el* requires TBD.
+*triode.el* requires the following programs and Elisp packages:
 
+- GNU Emacs 30.1+
+- [[https://github.com/kickingvegas/restlib][restlib]] 0.1+
+- [[https://github.com/kickingvegas/shazam/][shazam.el]] 0.1+
+
+
+* Features
+
+Remote control the Triode app from Emacs:
+
+- Choose station
+- Play/Stop toggle
+- Mute toggle
+- Copy current station and track to clipboard
+- Recognize music with Shazam
+- Open Triode app
+  
+
+  
 * Install
 
-*triode.el* TBD.
+# *triode.el* is available to install from MELPA (TBD).
+
+For manual installation, ensure that ~triode.el~ is available in the Emacs ~load-path~ variable.
+
+This package requires the installation of a macOS Shortcut named “Triode RC JSON”. Download and install it in your library of Shortcuts by clicking on the link below:
+
+- [[https://www.icloud.com/shortcuts/0db0f47809fe4b0a84ac640846fd65ee][iCloud Shortcut: Triode RC JSON]]
+
+*triode.el* by default requires your Emacs session to load the macOS SF Symbols font. Use the convenience function ~triode-init~ to setup both SF Symbols and to globally set your keybinding preference to the ~triode-tmenu~ command in your Emacs initialization file.
 
 #+begin_src elisp :lexical no
-  (require 'triode)
-  (triode-init)
+  (require 'triode) ;; optional if autoloaded
+  (triode-init "<f14>")
 #+end_src
+
+The use of the keybinding ~<f14>~ is merely a suggestion and can be changed to preference.
+
+* Usage
+
+Invoke the Transient menu ~triode-tmenu~ via ~execute-extended-command~ (~M-x~) or by your preferred keybinding.
+
+Refer to the [[https://kickingvegas.github.io/triode/][triode.el User Guide]] for more details on using *triode.el*.
 
   
 * Sponsorship
@@ -29,4 +66,4 @@ If you enjoy using *triode.el*, please consider buying me a coffee to help suppo
   
 * Acknowledgments
 
-A heartfelt thanks to all the contributors to the GNU Emacs ecosystem from which *triode.el* builds from. This work would not be possible without your efforts.
+Thanks to the makers of the Triode app, the Shortcuts team, and to the GNU Emacs contributors from which *triode.el* builds from. This work would not be possible without your efforts.

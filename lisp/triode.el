@@ -6,7 +6,7 @@
 ;; URL: https://github.com/kickingvegas/triode
 ;; Keywords: tools
 ;; Package-Version: 0.0.2-rc.1
-;; Package-Requires: ((emacs "30.1"))
+;; Package-Requires: ((emacs "30.1") (shazam "1.0.0") (restlib "0.1.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -44,6 +44,15 @@
   nil
   "If non-nil then dismiss `triode-tmenu' for action commands."
   :type 'boolean
+  :group 'triode)
+
+(defcustom triode-poll-status-interval
+  200
+  "Poll interval (or period) in seconds.
+
+This variable is used by `triode-start-polling-status' set the period of
+polling. Note that changing this value requires a polling restart."
+  :type 'integer
   :group 'triode)
 
 (defvar triode-is-muting nil
@@ -185,7 +194,7 @@ This variable is populated with pseudo-Enum values:
              (setq triode-play-state :playing)
            (setq triode-play-state :stopped))
 
-         (setq triode-current-station (map-elt triode-station-db station-id "?"))
+         (setq triode-current-station (map-elt triode-station-db station-id "􀪔"))
          (setq triode--current-state response)
          (setq triode--current-state-timestamp (current-time))))
 
@@ -223,10 +232,13 @@ This variable is populated with pseudo-Enum values:
                 (format "[%s]" station))
 
                (t
-                (format "[%s]" triode-current-station)))))
+                (format "[%s]" triode-current-station))))
+
+         (msg (if (triode-status-polling-p)
+                  (concat "⇌" msg)
+                msg)))
     (setq triode--last-description msg)
     msg))
-
 
 (defun triode--render-description ()
   "Render TMENU description."
@@ -235,15 +247,13 @@ This variable is populated with pseudo-Enum values:
     (let* ((start-time triode--current-state-timestamp)
            (elapsed (float-time (time-subtract (current-time) start-time))))
       (when (> elapsed 45.0)
-        (message "⦚")
+        (message "⊛")
         (triode-sync-current-state)))
     (triode-sync-current-state))
 
   (if triode--current-state
       (triode--tmenu-description triode--current-state)
     "Triode"))
-
-
 
 
 ;;; Commands
@@ -284,7 +294,6 @@ This variable is populated with pseudo-Enum values:
 
    (t
     (message "Intermediate"))))
-
 
 (defun triode-mute ()
   "Mute Triode."
@@ -339,6 +348,7 @@ This variable is populated with pseudo-Enum values:
   (interactive)
   (customize-group "triode"))
 
+;;;###autoload (autoload 'triode-init "triode" nil t)
 (defun triode-init (&optional b)
   "Initialize Triode, binding B to `triode-tmenu'.
 
@@ -351,8 +361,6 @@ If B is not defined, then the binding <f14> we be used by default."
           (set-fontset-font t '(?􀀀 . ?􏿽) "SF Pro Display"))
       (keymap-global-set b #'triode-tmenu))))
 
-
-
 
 ;;; Polling
 
@@ -362,6 +370,7 @@ If B is not defined, then the binding <f14> we be used by default."
       t
     nil))
 
+;;;###autoload (autoload 'triode-start-polling-status "triode" nil t)
 (defun triode-start-polling-status ()
   "Start polling."
   (interactive)
@@ -369,9 +378,10 @@ If B is not defined, then the binding <f14> we be used by default."
       (message "Already polling Triode status.")
     (setq triode--status-poll-timer
           (run-at-time nil
-                       180
+                       triode-poll-status-interval
                        #'triode-sync-current-state))))
 
+;;;###autoload (autoload 'triode-cancel-polling "triode" nil t)
 (defun triode-cancel-polling ()
   "Cancel polling Triode status."
   (interactive)
@@ -383,6 +393,7 @@ If B is not defined, then the binding <f14> we be used by default."
 
 ;;; Transients
 
+;;;###autoload (autoload 'triode-tmenu "triode" nil t)
 (transient-define-prefix triode-tmenu ()
   "Transient menu for Triode app."
   :refresh-suffixes t
