@@ -27,17 +27,15 @@
 ;;; Code:
 (require 'map)
 (require 'transient)
+(require 'restlib)
 (require 'shazam)
+
+
+;;; Variables
 
 (defgroup triode nil
   "Group for Triode settings."
   :group 'convenience)
-
-(defcustom triode-stations '("WTJU" "BFF.fm" "BBC Radio 1Xtra"
-                             "BBC Radio 1" "KALW" "KCRW Music")
-  "List of radio stations."
-  :type '(repeat string)
-  :group 'triode)
 
 (defcustom triode-dismiss-menu-for-actions
   nil
@@ -45,18 +43,19 @@
   :type 'boolean
   :group 'triode)
 
-(defvar triode--shortcut-template "shortcuts run 'Triode %s' | cat"
-  "Shortcut template for Triode.")
-
 (defvar triode-is-muting nil
   "If non-nil, then muting is on.
 
-Note this value is inferred.")
+This value is local only as there is no muting state to be synchronized
+with the Triode app.")
 
-(defvar triode-is-playing nil
-  "If non-nil, then Triode is playing.
+(defvar triode-play-state :stopped
+  "Playback state.
 
-Note this value is inferred.")
+This variable is populated with pseudo-Enum values:
+:playing
+:stopped
+:refresh")
 
 (defvar triode-current-station ""
   "Current station.")
@@ -64,8 +63,28 @@ Note this value is inferred.")
 (defvar triode--last-description nil
   "Last description.")
 
+(defvar triode--current-state-timestamp nil
+  "Current state timestamp.")
+
+(defvar triode--current-state nil
+  "Current state.")
+
 (defvar triode-station-db (make-hash-table :test #'equal)
   "Station database.")
+
+(defvar triode--shortcut-cancelled-exit nil
+  "State variable to track if Shortcut was cancelled.")
+
+(defvar triode--process-filter-hash (make-hash-table :test 'eq :weakness 'key)
+  "Process filter hash table.")
+
+(defvar triode--process-sentinel-hash (make-hash-table :test 'eq :weakness 'key)
+  "Process sentinel hash table.")
+
+(defvar triode--status-poll-timer nil
+  "Timer for polling Triode status.")
+
+;;; Utilities
 
 (defun triode--dismiss-menu-for-actions ()
   "Transient state function based on `triode-dismiss-menu-for-actions'."
@@ -73,136 +92,106 @@ Note this value is inferred.")
       (transient--do-return)
     (transient--do-stay)))
 
-;; (ns-do-applescript "tell application \"Shortcuts Events\" to run shortcut named \"Triode Stop\"")
-(defvar triode--applescript-template "tell application \"Shortcuts Events\" to run shortcut named \"Triode %s\""
-  "AppleScript template for Triode.")
+(defun triode--tmenu-displayed-p ()
+  "Predicate if Triode Transient menu is being displayed."
+  (let* ((tmenu (transient-active-prefix))
+         (tinst (if tmenu
+                    (oref tmenu command))))
 
-(defun triode--make-request (clause &optional aps)
-  "Make request to Triode with CLAUSE.
-If APS is non-nil, then run Shortcut via AppleScript."
-  (let ((request (if aps
-                      (format triode--applescript-template clause)
-                    (format triode--shortcut-template clause))))
-    (if aps
-        (ns-do-applescript request)
-      (shell-command-to-string request))))
+    (and tmenu (eq tinst #'triode-tmenu))))
 
-(defun triode-current-state ()
-  "Get current state of Triode."
-  (interactive)
-  (let* ((response (triode--make-request "Now Playing JSON"))
-         (jsondb (json-parse-string response :null-object nil))
-         (playback-state (map-elt jsondb "playbackState"))
-         (track (map-elt jsondb "track"))
-         (artist (map-elt jsondb "artist"))
-         (album (map-elt jsondb "album"))
-         ;; (station-id (map-elt jsondb "stationID"))
-         )
+(defun triode--refresh-tmenu ()
+  "Refresh Transient menu if displayed."
 
-    (if (string-equal playback-state "Playing")
-        (setq triode-is-playing t)
-      (setq triode-is-playing nil))
+  (if (triode--tmenu-displayed-p)
+      (transient--refresh-transient)))
 
-    (if (and (stringp track) (string-equal track ""))
-        (map-put! jsondb "track" nil))
+(defun triode--process-sentinel (process signal)
+  "Process sentinel for PROCESS and SIGNAL."
+  (when (string-match-p "finished\\|exited" signal)
+    (let* ((exit-code (process-exit-status process))
+           (fn (map-elt triode--process-sentinel-hash process)))
+      (cond
+       ((= exit-code 0)
+        (if fn
+          (funcall fn process signal))
+        (triode--refresh-tmenu))
 
-    (if (and (stringp artist) (string-equal artist ""))
-        (map-put! jsondb "artist" nil))
+       (t
+        (if triode--shortcut-cancelled-exit
+            (setq triode--shortcut-cancelled-exit nil)
+          (error "Error: exit code: %s" exit-code))))
 
-    (if (and (stringp album) (string-equal album ""))
-        (map-put! jsondb "album" nil))
+      (if fn
+          (map-delete triode--process-sentinel-hash process)))))
 
-    jsondb))
+(defun triode--process-filter (process output)
+  "Process filter PROCESS and OUTPUT."
+  (if (and output (stringp output))
+      (let* ((fn (map-elt triode--process-filter-hash process)))
 
-(defun triode-now-playing ()
-  "Get what is now playing on Triode."
-  (interactive)
-  (let* ((current-state (triode-current-state))
-         (msg (triode--tmenu-description current-state)))
-    (kill-new msg)
-    (message "%s" msg)))
+        (cond
+         ((string-match-p "^Error: Running was cancelled" output)
+          (setq triode--shortcut-cancelled-exit t))
 
-(defun triode-play ()
-  "Play Triode."
-  (interactive)
-  (setq triode-is-playing t)
-  (triode--make-request "Start" t))
+         (t
+          (when fn
+            (funcall fn process output)
+            (map-delete triode--process-filter-hash process)))))))
 
-(defun triode-stop ()
-  "Stop Triode."
-  (interactive)
-  (setq triode-is-playing nil)
-  (triode--make-request "Stop" t))
+(defun triode--make-process-request (clause &optional filter sentinel)
+  "Make CLAUSE request with FILTER and SENTINEL."
+  (let* ((proc-name (format "triode-%s" clause))
+         (proc (make-process
+                :name proc-name
+                :buffer nil
+                :command '("shortcuts" "run" "Triode RC JSON")
+                :connection-type 'pipe
+                :filter #'triode--process-filter
+                :sentinel #'triode--process-sentinel)))
 
-(defun triode-mute ()
-  "Mute Triode."
-  (interactive)
-  (setq triode-is-muting t)
-  (triode--make-request "Mute On" t))
+    (if filter
+        (map-put! triode--process-filter-hash proc filter))
 
-(defun triode-unmute ()
-  "Unmute Triode."
-  (interactive)
-  (setq triode-is-muting nil)
-  (triode--make-request "Mute Off" t))
+    (if sentinel
+        (map-put! triode--process-sentinel-hash proc sentinel))
 
-(defun triode-station-gui ()
-  "Choose station using Triode GUI."
-  (interactive)
-  (let ((result (triode--make-request "Station JSON")))
-    (when (not (string-search "Error" result))
-      (let* ((response (json-parse-string result :null-object nil))
-             (name (substring-no-properties (map-elt response "name")))
-             (station-id (map-elt response "stationID")))
+    (process-send-string proc clause)
+    (process-send-eof proc)))
 
-        (unless (map-contains-key triode-station-db station-id)
-          (map-put! triode-station-db station-id name))
+(defun triode-sync-current-state (&optional delay)
+  "Get Triode current state with DELAY."
 
-        (setq triode-is-playing t)
+  (let ((delay (if (not delay) 0.3 delay)))
+    (sit-for delay)
+    (message "⇌")
 
-        (setq triode-current-station name)))))
+    (triode--make-process-request
+     "now-playing"
+     (lambda (_process output)
+       (let* ((response (json-parse-string output
+                                           :null-object nil))
+              (playback-state (map-elt response "playbackState"))
+              (station-id (map-elt response "stationID")))
 
-(defun triode-station ()
-  "Open station."
-  (interactive)
-  (let* ((choice (completing-read "Station: " triode-stations))
-         (station (format "Play %s" choice)))
-    (setq triode-current-station choice)
-    (setq triode-is-playing t)
-    (triode--make-request station)))
+         (mapc (lambda (key)
+                 (restlib-json-empty-string-to-nil response key))
+               '("track" "artist" "album"))
 
-(defun triode-launch ()
-  "Launch Triode app."
-  (interactive)
-  (process-lines "open" "-a" "Triode"))
+         (if (string-equal playback-state "Playing")
+             (setq triode-play-state :playing)
+           (setq triode-play-state :stopped))
 
-(defun triode--tmenu-refresh ()
-  "Refresh menu."
-  (interactive)
-  (transient--show))
+         (setq triode-current-station (map-elt triode-station-db station-id "?"))
+         (setq triode--current-state response)
+         (setq triode--current-state-timestamp (current-time))))
 
-(defun triode-customize-group ()
-  "Customize ‘triode’ group."
-  (interactive)
-  (customize-group "triode"))
-
-(defun triode-init (&optional b)
-  "Initialize Triode, binding B to `triode-tmenu'.
-
-If B is not defined, then the binding <f14> we be used by default."
-  (interactive)
-  (let ((b (if (not b) "<f14>" b)))
-    (if (not (eq system-type 'darwin))
-        (error "Only supported on macOS")
-      (if (and (display-graphic-p) (fboundp 'set-fontset-font))
-          (set-fontset-font t '(?􀀀 . ?􏿽) "SF Pro Display"))
-      (keymap-global-set b #'triode-tmenu))))
-
+     (lambda (_process _signal)
+       (message nil)))))
 
 (defun triode--tmenu-description (current-state)
   "Render description given CURRENT-STATE."
-  (let* ((playback-state (map-elt current-state "playbackState"))
-         (track (map-elt current-state "track"))
+  (let* ((track (map-elt current-state "track"))
          (artist (map-elt current-state "artist"))
          (album (map-elt current-state "album"))
          (station-id (map-elt current-state "stationID"))
@@ -228,36 +217,192 @@ If B is not defined, then the binding <f14> we be used by default."
                         track))
 
                (station
-                ;; (unless (string-equal triode-current-station track)
-                ;;   (setq triode-current-station track))
                 (format "[%s]" station))
 
                (t
                 (format "[%s]" triode-current-station)))))
     (setq triode--last-description msg)
-    (setq triode-is-playing (string-equal playback-state "Playing"))
     msg))
+
+
+(defun triode--render-description ()
+  "Render TMENU description."
+
+  (if triode--current-state-timestamp
+    (let* ((start-time triode--current-state-timestamp)
+           (elapsed (float-time (time-subtract (current-time) start-time))))
+      (when (> elapsed 45.0)
+        (message "⦚")
+        (triode-sync-current-state)))
+    (triode-sync-current-state))
+
+  (if triode--current-state
+      (triode--tmenu-description triode--current-state)
+    "Triode"))
+
+
+
+
+;;; Commands
+
+(defun triode-play ()
+  "Play Triode."
+  (interactive)
+  (triode--make-process-request
+   "start"
+   nil
+   (lambda (_process _signal)
+     (triode-sync-current-state))))
+
+(defun triode-stop ()
+  "Stop Triode."
+  (interactive)
+  (triode--make-process-request
+   "stop"
+   nil
+   (lambda (_process _signal)
+     (triode-sync-current-state))))
+
+(defun triode-toggle-play ()
+  "Toggle Play."
+  (interactive)
+
+  (cond
+   ((eq triode-play-state :playing)
+    (setq triode-play-state :stopped)
+    (triode-stop))
+
+   ((eq triode-play-state :stopped)
+    (setq triode-play-state :playing)
+    (triode-play))
+
+   ((eq triode-play-state :requested)
+    (message "requested"))
+
+   (t
+    (message "Intermediate"))))
+
+
+(defun triode-mute ()
+  "Mute Triode."
+  (interactive)
+  (setq triode-is-muting t)
+  (triode--make-process-request "mute-on"))
+
+(defun triode-unmute ()
+  "Unmute Triode."
+  (interactive)
+  (setq triode-is-muting nil)
+    (triode--make-process-request "mute-off"))
+
+(defun triode-station-gui ()
+  "Choose station using Triode GUI."
+  (interactive)
+  (triode--make-process-request
+   "station"
+   (lambda (_process output)
+     (let* ((response (json-parse-string output
+                                         :null-object nil))
+            (name (map-elt response "name"))
+            (station-id (map-elt response "stationID")))
+
+       (unless (map-contains-key triode-station-db station-id)
+         (map-put! triode-station-db station-id name))
+
+       (setq triode-current-station name)
+
+       (map-put! triode--current-state "stationID" station-id)
+       (map-put! triode--current-state "track" name)
+       (map-put! triode--current-state "artist" nil)
+       (map-put! triode--current-state "album" nil)
+       ;; TODO: Maybe update current state timestamp?
+
+       (triode--refresh-tmenu)))
+   (lambda (_process _signal)
+     (triode-sync-current-state 2.5))))
+
+(defun triode-launch ()
+  "Launch Triode app."
+  (interactive)
+  (process-lines "open" "-a" "Triode"))
+
+(defun triode-refresh-state ()
+  "Refresh menu."
+  (interactive)
+  (triode-sync-current-state))
+
+(defun triode-customize-group ()
+  "Customize ‘triode’ group."
+  (interactive)
+  (customize-group "triode"))
+
+(defun triode-init (&optional b)
+  "Initialize Triode, binding B to `triode-tmenu'.
+
+If B is not defined, then the binding <f14> we be used by default."
+  (interactive)
+  (let ((b (if (not b) "<f14>" b)))
+    (if (not (eq system-type 'darwin))
+        (error "Only supported on macOS")
+      (if (and (display-graphic-p) (fboundp 'set-fontset-font))
+          (set-fontset-font t '(?􀀀 . ?􏿽) "SF Pro Display"))
+      (keymap-global-set b #'triode-tmenu))))
+
+
+
+
+;;; Polling
+
+(defun triode-status-polling-p ()
+  "Predicate if polling Triode status."
+  (if triode--status-poll-timer
+      t
+    nil))
+
+(defun triode-start-polling-status ()
+  "Start polling."
+  (interactive)
+  (if (triode-status-polling-p)
+      (message "Already polling Triode status.")
+    (setq triode--status-poll-timer
+          (run-at-time nil
+                       180
+                       #'triode-sync-current-state))))
+
+(defun triode-cancel-polling ()
+  "Cancel polling Triode status."
+  (interactive)
+  (if (not (triode-status-polling-p))
+      (message "Not polling Triode status.")
+    (cancel-timer triode--status-poll-timer)
+    (setq triode--status-poll-timer nil)
+    (message "Cancelled polling Triode status")))
+
+;;; Transients
 
 (transient-define-prefix triode-tmenu ()
   "Transient menu for Triode app."
   :refresh-suffixes t
   ["Triode"
    :class transient-row
-   :description (lambda () (triode--tmenu-description (triode-current-state)))
-   ("s" "􀪔…" triode-station-gui)
-   ("SPC" "􀊄" triode-play
-    :transient triode--dismiss-menu-for-actions
-    :if-not (lambda () triode-is-playing))
-   ("SPC" "􀛷" triode-stop
-    :transient triode--dismiss-menu-for-actions
-    :if (lambda () triode-is-playing))
+   :description triode--render-description
+   ("s" "􀪔…" triode-station-gui
+    :transient triode--dismiss-menu-for-actions)
+   ("SPC" "􀊄" triode-toggle-play
+    :description (lambda ()
+                   (cond
+                    ((eql triode-play-state :playing) "􀛷")
+                    ((eql triode-play-state :stopped) "􀊄")
+                    ((eql triode-play-state :requested) "?")
+                    (t "*")))
+    :transient triode--dismiss-menu-for-actions)
    ("m" "􀊢" triode-mute
     :transient triode--dismiss-menu-for-actions
     :if-not (lambda () triode-is-muting))
    ("m" "􀊣" triode-unmute
     :transient triode--dismiss-menu-for-actions
     :if (lambda () triode-is-muting))
-   ("r" "􀅈" triode--tmenu-refresh :transient t)
+   ("r" "􀅈" triode-refresh-state :transient t)
    ("w" "􀉁" (lambda ()
               "Copy current station and track to `kill-ring'"
               (interactive)
