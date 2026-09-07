@@ -1,6 +1,32 @@
+# [[https://melpa.org/#/triode][file:https://melpa.org/packages/triode-badge.svg]] [[https://stable.melpa.org/#/triode][file:https://stable.melpa.org/packages/triode-badge.svg]]
+
 * triode.el
 
-WIP
+THIS PROJECT IS WIP.
 
-An Emacs interface to the [[https://triode.app][Triode app]], coming soon.
+*triode.el* is TBD.
 
+* Requirements
+
+*triode.el* requires TBD.
+
+* Install
+
+*triode.el* TBD.
+
+#+begin_src elisp :lexical no
+  (require 'triode)
+  (triode-init)
+#+end_src
+
+  
+* Sponsorship
+
+If you enjoy using *triode.el*, please consider buying me a coffee to help support its development and maintenance.
+
+[[file:docs/images/default-yellow.png]]
+
+  
+* Acknowledgments
+
+A heartfelt thanks to all the contributors to the GNU Emacs ecosystem from which *triode.el* builds from. This work would not be possible without your efforts.

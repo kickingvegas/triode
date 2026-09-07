@@ -1,9 +1,12 @@
 ;;; triode.el --- Triode Interface                   -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2026  Charles Choi
+;; Copyright (C) 2026 Charles Y. Choi
 
-;; Author: Charles Choi <kickingvegas@gmail.com>
+;; Author: Charles Y. Choi <kickingvegas@gmail.com>
+;; URL: https://github.com/kickingvegas/triode
 ;; Keywords: tools
+;; Package-Version: 0.0.0
+;; Package-Requires: ((emacs "30.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
