@@ -6,7 +6,7 @@
 ;; URL: https://github.com/kickingvegas/triode
 ;; Keywords: tools
 ;; Package-Version: 0.0.4-rc.1
-;; Package-Requires: ((emacs "30.1") (shazam "1.0.0") (restlib "0.1.0"))
+;; Package-Requires: ((emacs "30.1") (restlib "0.1.5") (shazam "1.0.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -23,9 +23,11 @@
 
 ;;; Commentary:
 
-;; Emacs interface to Triode app (https://triode.app/) via Shortcuts.
+;; triode.el is a remote control interface to the Triode app
+;; (https://triode.app), an internet radio station player for macOS.
 
-;;
+;; For installation and configuration of triode.el, refer to its user guide at
+;; Info `(triode) Top' or URL `https://kickingvegas.github.io/triode'.
 
 ;;; Code:
 (require 'map)
@@ -348,6 +350,12 @@ This variable is populated with pseudo-Enum values:
   (interactive)
   (customize-group "triode"))
 
+(defun triode-kill-as-copy-current ()
+  "Copy current station and track to `kill-ring'."
+  (interactive)
+  (if triode--last-description
+      (kill-new triode--last-description)))
+
 ;;;###autoload (autoload 'triode-init "triode" nil t)
 (defun triode-init (&optional b)
   "Initialize Triode, binding B to `triode-tmenu'.
@@ -417,11 +425,7 @@ If B is not defined, then the binding <f14> we be used by default."
     :transient triode--dismiss-menu-for-actions
     :if (lambda () triode-is-muting))
    ("r" "􀅈" triode-refresh-state :transient t)
-   ("w" "􀉁" (lambda ()
-              "Copy current station and track to `kill-ring'"
-              (interactive)
-              (if triode--last-description
-                  (kill-new triode--last-description))))
+   ("w" "􀉁" triode-kill-as-copy-current)
    ("z" "􁈴" shazam)
    ("o" "􀑪" triode-launch)
    ("," "􀣋" triode-customize-group)

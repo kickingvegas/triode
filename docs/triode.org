@@ -72,8 +72,7 @@ Remote control the Triode app from Emacs:
   
 - [[https://github.com/kickingvegas/restlib][restlib]] 0.1+
   
-- [[https://github.com/kickingvegas/shazam][shazam.el]] 0.1+
-
+- [[https://github.com/kickingvegas/shazam][shazam.el]] 1.0+
 
 
 * Install
