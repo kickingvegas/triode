@@ -26,7 +26,7 @@ Version: {{{version}}}
 [[file:images/triode-tmenu.png]]
 
 
-*triode.el* is a remote control interface to the Triode app (https://triode.app), an internet radio station player for macOS.
+*triode.el* is a GNU Emacs remote control interface to the Triode app (https://triode.app), an internet radio station player for macOS.
 
 With *triode.el*, you can control your listening to internet radio stations directly from GNU Emacs without need to change app focus.
     

@@ -41,7 +41,7 @@ Copyright © 2026 @w{Charles Y. Choi}
 @image{images/triode-tmenu,,,,png}
 
 
-@strong{triode.el} is a remote control interface to the Triode app (@uref{https://triode.app})@comma{} an internet radio station player for macOS@.
+@strong{triode.el} is a GNU Emacs remote control interface to the Triode app (@uref{https://triode.app})@comma{} an internet radio station player for macOS@.
 
 With @strong{triode.el}@comma{} you can control your listening to internet radio stations directly from GNU Emacs without need to change app focus.
 
