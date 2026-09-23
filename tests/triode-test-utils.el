@@ -33,5 +33,71 @@
   "Test breakdown function, if CLEAR is non-nil then clear state."
   )
 
+
+(defun triodet-suffix-testcase-runner (testcases menu value-fn)
+  "Test runner for suffixes in MENU specified in TESTCASES testing VALUE-FN.
+This function executes `triodet-testbench-transient-suffix' for all elements
+in TESTCASES.
+
+TESTCASES - list of plists with keys :binding, :command
+MENU - Transient prefix
+VALUE-FN - function generator of value to test against on top of the Calc stack
+
+An element in TEST-VECTOR consists of the following:
+
+keysequence - a key sequence to be exercised by `execute-kbd-macro'
+command-function - suffix command to be overridden
+
+command-function is overridden to push the result of VALUE-FN
+onto the top of the Calc stack.  This value is subsequently
+compared to test that the binding is working as expected.
+
+The value of keysequence is typically the keybinding value of the
+command (suffix). However if the suffix does not dismiss the
+Transient prefix that calls it, then the sequence should include
+values which trigger dismissal of the prefix. An example would be
+appending \"q\" to the keysequence."
+  (mapc (lambda (x)
+          (let ((binding (kbd (plist-get x :binding)))
+                (command (plist-get x :command)))
+            (triodet-testbench-transient-suffix menu
+                                                binding
+                                                command
+                                                (funcall value-fn))))
+        testcases))
+
+
+(defun triodet-testbench-transient-suffix (menu binding cmd value)
+  "Transient suffix testbench for BINDING and CMD in MENU testing VALUE.
+This function is intended to test a Transient suffix binding
+only. It does not exercise the actual command itself.
+
+MENU - Transient prefix
+BINDING - keybinding for suffix (menu item) to be tested
+CMD - suffix (menu item) function to be overridden
+VALUE - value to test against the top of the Calc stack
+
+This function creates a testbench to exercise a menu item
+command (Transient suffix) in a menu (prefix). The command
+associated with that binding is overridden to instead push a
+value to the top of the Calc stack. This value is then tested."
+  (defun triodet-stub (&rest _)
+    (number-to-register value ?9))
+
+  (print (format "testing %s binding: %s for %s" menu binding cmd))
+  (advice-add cmd :override #'triodet-stub)
+  (funcall-interactively menu)
+  (execute-kbd-macro binding)
+  (should (equal value (get-register ?9)))
+  (advice-remove cmd #'triodet-stub))
+
+
+(defmacro triodet-mock (fn)
+  "Substitute interactive function FN with a mock function.
+
+This macro is intended to be used in a `cl-letf' call to mock
+functions that can not be advised."
+  (list '((symbol-function fn) (lambda (x) (interactive)(print "WARNING: override")))))
+
 (provide 'triode-test-utils)
 ;;; triode-test-utils.el ends here

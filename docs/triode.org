@@ -6,7 +6,7 @@
 #+EMAIL: kickingvegas@gmail.com
 #+OPTIONS: ':t toc:t author:t email:t H:4 f:t
 #+LANGUAGE: en
-#+MACRO: version 0.0.3
+#+MACRO: version 0.0.4-rc.1
 #+MACRO: kbd (eval (org-texinfo-kbd-macro $1))
 #+TEXINFO_FILENAME: triode.info
 #+TEXINFO_CLASS: casual
@@ -26,7 +26,7 @@ Version: {{{version}}}
 [[file:images/triode-tmenu.png]]
 
 
-*triode.el* is a remote control interface to the Triode app (https://triode.app), an internet radio station player for macOS.
+*triode.el* is a GNU Emacs remote control interface to the Triode app (https://triode.app), an internet radio station player for macOS.
 
 With *triode.el*, you can control your listening to internet radio stations directly from GNU Emacs without need to change app focus.
     
@@ -67,13 +67,14 @@ Remote control the Triode app from Emacs:
 - macOS 15+ (Sequoia)  
 
 - GNU Emacs 30.1+ ([[info:emacs#Top]])
+
+- Transient 0.9+ (info:transient#Top)
   
 - [[https://triode.app][Triode app]] for macOS 2.4+
   
-- [[https://github.com/kickingvegas/restlib][restlib]] 0.1+
+- restlib 0.1+ (info:restlib#Top)
   
-- [[https://github.com/kickingvegas/shazam][shazam.el]] 0.1+
-
+- shazam.el 1.0+ (info:shazam#Top)
 
 
 * Install
