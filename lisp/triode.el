@@ -6,7 +6,7 @@
 ;; URL: https://github.com/kickingvegas/triode
 ;; Keywords: tools
 ;; Package-Version: 0.0.4-rc.1
-;; Package-Requires: ((emacs "30.1") (restlib "0.1.5") (shazam "1.0.0"))
+;; Package-Requires: ((emacs "30.1") (transient "0.9.0") (restlib "0.1.5") (shazam "1.0.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
