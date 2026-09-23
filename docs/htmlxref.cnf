@@ -6,5 +6,6 @@ magit                 node https://docs.magit.vc/magit/
 casual                node https://kickingvegas.github.io/casual/
 casual-suite          node https://kickingvegas.github.io/casual-suite/
 casual-avy            node https://kickingvegas.github.io/casual-avy/
-casual-symbol-overlay node https://kickingvegas.github.io/casual-symbol-overlay/
+restlib               node https://kickingvegas.github.io/restlib/
+shazam                node https://kickingvegas.github.io/shazam/
 
