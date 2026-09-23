@@ -34,11 +34,14 @@ endif
 PKG_BASE_DIR=$(abspath $(shell pwd)/..)
 PKG_LISP_DIR=$(PKG_BASE_DIR)/lisp
 EMACS_ELPA_DIR=$(HOME)/.config/emacs/elpa
+KV_ELISP=$(HOME)/Projects/elisp
 
-PACKAGE_PATHS=						\
--L $(EMACS_ELPA_DIR)/compat-current			\
--L $(EMACS_ELPA_DIR)/seq-current			\
--L $(EMACS_ELPA_DIR)/llama-current			\
--L $(EMACS_ELPA_DIR)/transient-current			\
--L $(EMACS_ELPA_DIR)/cond-let-current			\
+PACKAGE_PATHS=					\
+-L $(EMACS_ELPA_DIR)/compat-current		\
+-L $(EMACS_ELPA_DIR)/seq-current		\
+-L $(EMACS_ELPA_DIR)/llama-current		\
+-L $(EMACS_ELPA_DIR)/transient-current		\
+-L $(EMACS_ELPA_DIR)/cond-let-current		\
+-L $(KV_ELISP)/restlib/lisp			\
+-L $(KV_ELISP)/shazam/lisp			\
 -L $(PKG_LISP_DIR)
