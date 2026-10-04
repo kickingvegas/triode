@@ -1,4 +1,4 @@
-;;; triode.el --- Triode Interface                   -*- lexical-binding: t; -*-
+;;; triode.el --- Interface to Triode app, macOS internet radio -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 Charles Y. Choi
 
