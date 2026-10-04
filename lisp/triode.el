@@ -1,11 +1,11 @@
-;;; triode.el --- Triode Interface                   -*- lexical-binding: t; -*-
+;;; triode.el --- Interface to Triode app, macOS internet radio -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 Charles Y. Choi
 
 ;; Author: Charles Y. Choi <kickingvegas@gmail.com>
 ;; URL: https://github.com/kickingvegas/triode
 ;; Keywords: tools
-;; Package-Version: 0.1.0
+;; Package-Version: 0.1.1-rc.1
 ;; Package-Requires: ((emacs "30.1") (transient "0.9.0") (restlib "0.1.5") (shazam "1.0.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
