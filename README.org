@@ -1,4 +1,4 @@
-# [[https://melpa.org/#/triode][file:https://melpa.org/packages/triode-badge.svg]] [[https://stable.melpa.org/#/triode][file:https://stable.melpa.org/packages/triode-badge.svg]]
+[[https://melpa.org/#/triode][file:https://melpa.org/packages/triode-badge.svg]] [[https://stable.melpa.org/#/triode][file:https://stable.melpa.org/packages/triode-badge.svg]]
 
 * triode.el
 
@@ -34,7 +34,7 @@ Remote control the Triode app from Emacs:
   
 * Install
 
-# *triode.el* is available to install from MELPA (TBD).
+*triode.el* is available to install from [[https://melpa.org/#/triode][MELPA]].
 
 For manual installation, ensure that ~triode.el~ is available in the Emacs ~load-path~ variable.
 
